@@ -1,0 +1,166 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="page-sub">Your inventory at a glance</p>
+    </div>
+    <a href="/product/new" class="btn-primary"><i class="fas fa-plus"></i> Add Product</a>
+</div>
+
+<!-- ═══════════ STAT CARDS ═══════════ -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card-icon blue"><i class="fas fa-box"></i></div>
+        <div class="stat-card-body">
+            <div class="stat-card-num">@Model.TotalProducts</div>
+            <div class="stat-card-label">Products</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon green"><i class="fas fa-cubes"></i></div>
+        <div class="stat-card-body">
+            <div class="stat-card-num">@Model.TotalUnits.ToString("N0")</div>
+            <div class="stat-card-label">Total Units</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon purple"><i class="fas fa-dollar-sign"></i></div>
+        <div class="stat-card-body">
+            <div class="stat-card-num">$@Model.TotalInventoryValue.ToString("N2")</div>
+            <div class="stat-card-label">Inventory Value</div>
+        </div>
+    </div>
+    <div class="stat-card @(Model.LowStockCount > 0 ? "alert" : "")">
+        <div class="stat-card-icon @(Model.LowStockCount > 0 ? "orange" : "green")">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-card-body">
+            <div class="stat-card-num">@Model.LowStockCount</div>
+            <div class="stat-card-label">Low Stock Items</div>
+        </div>
+        @if (Model.LowStockCount > 0)
+        {
+            <a href="/low-stock" class="stat-card-link">View &rarr;</a>
+        }
+    </div>
+</div>
+
+<!-- ═══════════ TWO COLUMN ═══════════ -->
+<div class="dashboard-grid">
+    <!-- Category breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-layer-group"></i> By Category</h2>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th class="text-right">Products</th>
+                        <th class="text-right">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (cat, count, value) in Model.CategoryBreakdown)
+                    {
+                        <tr>
+                            <td>@cat</td>
+                            <td class="text-right">@count</td>
+                            <td class="text-right">$@value.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Low stock alerts -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-bell"></i> Low Stock Alerts</h2>
+            @if (Model.LowStockItems.Count > 0)
+            {
+                <span class="badge badge-warning">@Model.LowStockItems.Count</span>
+            }
+        </div>
+        <div class="card-body">
+            @if (Model.LowStockItems.Count == 0)
+            {
+                <div class="empty-state small">
+                    <i class="fas fa-check-circle"></i>
+                    <p>All items are well-stocked!</p>
+                </div>
+            }
+            else
+            {
+                <div class="alert-list">
+                    @foreach (var item in Model.LowStockItems.Take(8))
+                    {
+                        <div class="alert-item @(item.IsOutOfStock ? "out-of-stock" : "")">
+                            <div class="alert-item-info">
+                                <span class="alert-item-name">@item.Name</span>
+                                <span class="alert-item-sku">@item.Sku</span>
+                            </div>
+                            <div class="alert-item-stock">
+                                <span class="stock-badge @(item.IsOutOfStock ? "badge-danger" : "badge-warning")">
+                                    @(item.IsOutOfStock ? "Out of Stock" : $"{item.QuantityOnHand} left")
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (Model.LowStockItems.Count > 8)
+                {
+                    <a href="/low-stock" class="card-footer-link">View all @Model.LowStockItems.Count items &rarr;</a>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ RECENT PRODUCTS ═══════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fas fa-clock"></i> Recently Updated</h2>
+        <a href="/inventory" class="card-header-link">View All &rarr;</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Category</th>
+                        <th class="text-right">Price</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.RecentProducts)
+                    {
+                        <tr class="@(p.IsLowStock ? "row-warning" : "")">
+                            <td><a href="/product/@p.Id">@p.Name</a></td>
+                            <td class="text-muted">@p.Sku</td>
+                            <td>@p.Category</td>
+                            <td class="text-right">$@p.SellPrice.ToString("N2")</td>
+                            <td class="text-right">
+                                <span class="@(p.IsOutOfStock ? "text-danger fw-bold" : p.IsLowStock ? "text-warning fw-bold" : "")">
+                                    @p.QuantityOnHand
+                                </span>
+                            </td>
+                            <td class="text-right text-muted">@p.LastUpdated.ToString("MMM d")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

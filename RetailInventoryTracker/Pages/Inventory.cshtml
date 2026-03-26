@@ -1,0 +1,122 @@
+@page "/inventory"
+@model RetailInventoryTracker.Pages.InventoryModel
+@{
+    ViewData["Title"] = "Inventory";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Inventory</h1>
+        <p class="page-sub">@Model.FilteredProducts.Count product@(Model.FilteredProducts.Count == 1 ? "" : "s") found</p>
+    </div>
+    <a href="/product/new" class="btn-primary"><i class="fas fa-plus"></i> Add Product</a>
+</div>
+
+<!-- ═══════════ FILTERS ═══════════ -->
+<form method="get" class="filter-bar">
+    <div class="filter-search">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" value="@Model.Q" placeholder="Search by name, SKU, or supplier…" />
+    </div>
+    <select name="cat" class="filter-select" onchange="this.form.submit()">
+        <option value="All" selected="@(Model.Cat == "All")">All Categories</option>
+        @foreach (var cat in Model.Categories)
+        {
+            <option value="@cat" selected="@(Model.Cat == cat)">@cat</option>
+        }
+    </select>
+    <select name="stock" class="filter-select" onchange="this.form.submit()">
+        <option value="all" selected="@(Model.Stock == "all")">All Stock Levels</option>
+        <option value="low" selected="@(Model.Stock == "low")">Low Stock Only</option>
+        <option value="out" selected="@(Model.Stock == "out")">Out of Stock Only</option>
+        <option value="ok" selected="@(Model.Stock == "ok")">In Stock Only</option>
+    </select>
+    <button type="button" class="btn-outline btn-scan-find"
+            onclick="BarcodeScanner.open(function(bc){ window.location.href='/inventory?handler=ScanRedirect&barcode='+encodeURIComponent(bc); })"
+            title="Scan barcode to find product">
+        <i class="fas fa-barcode"></i> Scan
+    </button>
+    <button type="submit" class="btn-outline" style="display:none">Search</button>
+</form>
+
+<!-- ═══════════ TABLE ═══════════ -->
+<div class="card">
+    <div class="card-body">
+        @if (Model.FilteredProducts.Count == 0)
+        {
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <p>No products match your filters.</p>
+                <a href="/inventory" class="btn-outline">Clear Filters</a>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Category</th>
+                            <th class="text-right">Cost</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Margin</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Value</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.FilteredProducts)
+                        {
+                            <tr class="@(p.IsOutOfStock ? "row-danger" : p.IsLowStock ? "row-warning" : "")">
+                                <td>
+                                    <a href="/product/@p.Id" class="product-link">@p.Name</a>
+                                </td>
+                                <td class="text-muted">@p.Sku</td>
+                                <td><span class="category-tag">@p.Category</span></td>
+                                <td class="text-right">$@p.CostPrice.ToString("N2")</td>
+                                <td class="text-right">$@p.SellPrice.ToString("N2")</td>
+                                <td class="text-right">@p.Margin%</td>
+                                <td class="text-right">
+                                    <span class="@(p.IsOutOfStock ? "text-danger fw-bold" : p.IsLowStock ? "text-warning fw-bold" : "")">
+                                        @p.QuantityOnHand
+                                    </span>
+                                </td>
+                                <td class="text-right">$@p.InventoryValue.ToString("N2")</td>
+                                <td class="text-center">
+                                    <div class="action-btns">
+                                        <form method="post" asp-page-handler="Adjust" style="display:inline">
+                                            <input type="hidden" name="id" value="@p.Id" />
+                                            <input type="hidden" name="amount" value="-1" />
+                                            <input type="hidden" name="q" value="@Model.Q" />
+                                            <input type="hidden" name="cat" value="@Model.Cat" />
+                                            <input type="hidden" name="stock" value="@Model.Stock" />
+                                            <button type="submit" class="btn-icon" title="Remove 1">
+                                                <i class="fas fa-minus"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-page-handler="Adjust" style="display:inline">
+                                            <input type="hidden" name="id" value="@p.Id" />
+                                            <input type="hidden" name="amount" value="1" />
+                                            <input type="hidden" name="q" value="@Model.Q" />
+                                            <input type="hidden" name="cat" value="@Model.Cat" />
+                                            <input type="hidden" name="stock" value="@Model.Stock" />
+                                            <button type="submit" class="btn-icon" title="Add 1">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </form>
+                                        <a href="/product/@p.Id" class="btn-icon" title="Edit">
+                                            <i class="fas fa-pen"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
