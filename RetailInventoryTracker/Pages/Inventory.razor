@@ -1,0 +1,198 @@
+@page "/inventory"
+@inject InventoryService Svc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Inventory — StockSimple</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>Inventory</h1>
+        <p class="page-sub">@filteredProducts.Count product@(filteredProducts.Count == 1 ? "" : "s") found</p>
+    </div>
+    <a href="/product/new" class="btn-primary"><i class="fas fa-plus"></i> Add Product</a>
+</div>
+
+<!-- ═══════════ FILTERS ═══════════ -->
+<div class="filter-bar">
+    <div class="filter-search">
+        <i class="fas fa-search"></i>
+        <input type="text" value="@searchQuery" @oninput="OnSearchInput"
+               placeholder="Search by name, SKU, or supplier…" />
+    </div>
+    <select class="filter-select" value="@selectedCategory" @onchange="OnCategoryChange">
+        <option value="All">All Categories</option>
+        @foreach (var cat in categories)
+        {
+            <option value="@cat">@cat</option>
+        }
+    </select>
+    <select class="filter-select" value="@stockFilter" @onchange="OnStockFilterChange">
+        <option value="all">All Stock Levels</option>
+        <option value="low">Low Stock Only</option>
+        <option value="out">Out of Stock Only</option>
+        <option value="ok">In Stock Only</option>
+    </select>
+    <button type="button" class="btn-outline btn-scan-find" @onclick="OpenBarcodeScanner"
+            title="Scan barcode to find product">
+        <i class="fas fa-barcode"></i> Scan
+    </button>
+</div>
+
+<!-- ═══════════ TABLE ═══════════ -->
+<div class="card">
+    <div class="card-body">
+        @if (filteredProducts.Count == 0)
+        {
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <p>No products match your filters.</p>
+                <button class="btn-outline" @onclick="ClearFilters">Clear Filters</button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Category</th>
+                            <th class="text-right">Cost</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Margin</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Value</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in filteredProducts)
+                        {
+                            <tr class="@(p.IsOutOfStock ? "row-danger" : p.IsLowStock ? "row-warning" : "")">
+                                <td>
+                                    <a href="/product/@p.Id" class="product-link">@p.Name</a>
+                                </td>
+                                <td class="text-muted">@p.Sku</td>
+                                <td><span class="category-tag">@p.Category</span></td>
+                                <td class="text-right">$@p.CostPrice.ToString("N2")</td>
+                                <td class="text-right">$@p.SellPrice.ToString("N2")</td>
+                                <td class="text-right">@p.Margin%</td>
+                                <td class="text-right">
+                                    <span class="@(p.IsOutOfStock ? "text-danger fw-bold" : p.IsLowStock ? "text-warning fw-bold" : "")">
+                                        @p.QuantityOnHand
+                                    </span>
+                                </td>
+                                <td class="text-right">$@p.InventoryValue.ToString("N2")</td>
+                                <td class="text-center">
+                                    <div class="action-btns">
+                                        <button class="btn-icon" title="Remove 1" @onclick="() => AdjustStock(p.Id, -1)">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <button class="btn-icon" title="Add 1" @onclick="() => AdjustStock(p.Id, 1)">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <a href="/product/@p.Id" class="btn-icon" title="Edit">
+                                            <i class="fas fa-pen"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    string searchQuery = "";
+    string selectedCategory = "All";
+    string stockFilter = "all";
+
+    List<string> categories = [];
+    List<Product> filteredProducts = [];
+
+    DotNetObjectReference<Inventory>? dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        categories = Svc.GetCategories();
+        ApplyFilters();
+    }
+
+    void OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    void OnCategoryChange(ChangeEventArgs e)
+    {
+        selectedCategory = e.Value?.ToString() ?? "All";
+        ApplyFilters();
+    }
+
+    void OnStockFilterChange(ChangeEventArgs e)
+    {
+        stockFilter = e.Value?.ToString() ?? "all";
+        ApplyFilters();
+    }
+
+    void ApplyFilters()
+    {
+        var results = Svc.Search(searchQuery, selectedCategory == "All" ? null : selectedCategory);
+        filteredProducts = (stockFilter switch
+        {
+            "low" => results.Where(p => p.IsLowStock).ToList(),
+            "out" => results.Where(p => p.IsOutOfStock).ToList(),
+            "ok"  => results.Where(p => !p.IsLowStock).ToList(),
+            _     => results
+        }).ToList();
+    }
+
+    void AdjustStock(Guid id, int amount)
+    {
+        Svc.AdjustStock(id, amount);
+        ApplyFilters();
+    }
+
+    void ClearFilters()
+    {
+        searchQuery = "";
+        selectedCategory = "All";
+        stockFilter = "all";
+        ApplyFilters();
+    }
+
+    async Task OpenBarcodeScanner()
+    {
+        dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("openBarcodeScannerForSearch", dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnBarcodeSearchResult(string code)
+    {
+        var product = Svc.GetByBarcode(code);
+        if (product is not null)
+        {
+            Nav.NavigateTo($"/product/{product.Id}");
+            return;
+        }
+        // Fall back to text search
+        searchQuery = code;
+        selectedCategory = "All";
+        stockFilter = "all";
+        ApplyFilters();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        dotNetRef?.Dispose();
+    }
+}

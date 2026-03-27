@@ -1,0 +1,253 @@
+@page "/product/{Id?}"
+@inject InventoryService Svc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>@(isNew ? "Add Product" : "Edit Product") — StockSimple</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1>@(isNew ? "Add New Product" : "Edit Product")</h1>
+        <p class="page-sub">@(isNew ? "Add a product to your inventory" : product.Name)</p>
+    </div>
+</div>
+
+<div class="form-card">
+    <EditForm Model="product" OnValidSubmit="HandleSave">
+        <DataAnnotationsValidator />
+
+        @if (!isNew)
+        {
+            <input type="hidden" value="@product.Id" />
+        }
+
+        <!-- Product Details -->
+        <div class="form-section">
+            <h3><i class="fas fa-box"></i> Product Details</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input class="form-input" @bind="product.Name" placeholder="e.g. Claw Hammer 16oz" />
+                    @if (validationErrors.ContainsKey("Name"))
+                    {
+                        <span class="text-danger">@validationErrors["Name"]</span>
+                    }
+                </div>
+                <div class="form-group">
+                    <label>SKU *</label>
+                    <input class="form-input" @bind="product.Sku" placeholder="e.g. HW-1001" />
+                    @if (validationErrors.ContainsKey("Sku"))
+                    {
+                        <span class="text-danger">@validationErrors["Sku"]</span>
+                    }
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Barcode</label>
+                    <div class="input-with-btn">
+                        <input class="form-input" @bind="product.Barcode" id="barcode-field"
+                               placeholder="e.g. 012345678905" />
+                        <button type="button" class="btn-scan" @onclick="OpenBarcodeScanner" title="Scan barcode">
+                            <i class="fas fa-barcode"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Category *</label>
+                    <input class="form-input" @bind="product.Category"
+                           placeholder="e.g. Hardware & Tools" list="category-list" />
+                    <datalist id="category-list">
+                        @foreach (var cat in existingCategories)
+                        {
+                            <option value="@cat" />
+                        }
+                    </datalist>
+                    @if (validationErrors.ContainsKey("Category"))
+                    {
+                        <span class="text-danger">@validationErrors["Category"]</span>
+                    }
+                </div>
+                <div class="form-group">
+                    <label>Supplier</label>
+                    <input class="form-input" @bind="product.Supplier" placeholder="e.g. Midwest Supply Co" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="form-section">
+            <h3><i class="fas fa-dollar-sign"></i> Pricing</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Cost Price *</label>
+                    <input class="form-input" type="number" step="0.01" @bind="product.CostPrice" />
+                </div>
+                <div class="form-group">
+                    <label>Sell Price *</label>
+                    <input class="form-input" type="number" step="0.01" @bind="product.SellPrice" />
+                </div>
+                <div class="form-group">
+                    <label>Margin</label>
+                    <div class="form-static">
+                        @if (product.SellPrice > 0 && product.CostPrice > 0)
+                        {
+                            <span class="@(product.Margin >= 30 ? "text-green" : product.Margin >= 15 ? "text-warning" : "text-danger")">
+                                @product.Margin%
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">&mdash;</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock -->
+        <div class="form-section">
+            <h3><i class="fas fa-cubes"></i> Stock</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Quantity on Hand</label>
+                    <input class="form-input" type="number" @bind="product.QuantityOnHand" />
+                </div>
+                <div class="form-group">
+                    <label>Reorder Level</label>
+                    <input class="form-input" type="number" @bind="product.ReorderLevel" />
+                    <span class="form-hint">You'll see a warning when stock falls to this level</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-section">
+            <h3><i class="fas fa-sticky-note"></i> Notes</h3>
+            <div class="form-group">
+                <textarea class="form-input" rows="3" @bind="product.Notes"
+                          placeholder="Optional notes about this product…"></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="/inventory" class="btn-outline">Cancel</a>
+
+            @if (!isNew)
+            {
+                <button type="button" class="btn-danger" @onclick="HandleDelete">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            }
+
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-save"></i> @(isNew ? "Add Product" : "Save Changes")
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    Product product = new();
+    List<string> existingCategories = [];
+    Dictionary<string, string> validationErrors = new();
+    bool isNew => string.IsNullOrEmpty(Id) || string.Equals(Id, "new", StringComparison.OrdinalIgnoreCase);
+
+    DotNetObjectReference<EditProduct>? dotNetRef;
+
+    protected override void OnParametersSet()
+    {
+        existingCategories = Svc.GetCategories();
+
+        if (!isNew)
+        {
+            if (!Guid.TryParse(Id, out var guid))
+            {
+                Nav.NavigateTo("/inventory");
+                return;
+            }
+
+            var existing = Svc.GetById(guid);
+            if (existing is null)
+            {
+                Nav.NavigateTo("/inventory");
+                return;
+            }
+
+            product = new Product
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                Sku = existing.Sku,
+                Category = existing.Category,
+                CostPrice = existing.CostPrice,
+                SellPrice = existing.SellPrice,
+                QuantityOnHand = existing.QuantityOnHand,
+                ReorderLevel = existing.ReorderLevel,
+                Barcode = existing.Barcode,
+                Supplier = existing.Supplier,
+                Notes = existing.Notes,
+            };
+        }
+        else
+        {
+            product = new Product();
+        }
+
+        validationErrors.Clear();
+    }
+
+    void HandleSave()
+    {
+        validationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(product.Name))
+            validationErrors["Name"] = "Product name is required.";
+        if (string.IsNullOrWhiteSpace(product.Sku))
+            validationErrors["Sku"] = "SKU is required.";
+        if (string.IsNullOrWhiteSpace(product.Category))
+            validationErrors["Category"] = "Category is required.";
+
+        if (validationErrors.Count > 0) return;
+
+        if (isNew)
+            Svc.Add(product);
+        else
+            Svc.Update(product);
+
+        Nav.NavigateTo("/inventory");
+    }
+
+    async Task HandleDelete()
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this product?");
+        if (confirmed && !isNew && Guid.TryParse(Id, out var guid))
+        {
+            Svc.Delete(guid);
+            Nav.NavigateTo("/inventory");
+        }
+    }
+
+    async Task OpenBarcodeScanner()
+    {
+        dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("openBarcodeScanner", dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnBarcodeScanned(string code)
+    {
+        product.Barcode = code;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        dotNetRef?.Dispose();
+    }
+}

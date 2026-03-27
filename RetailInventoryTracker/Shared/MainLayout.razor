@@ -1,0 +1,115 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="app-layout">
+
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <nav class="sidebar @(sidebarCollapsed ? "collapsed" : "") @(mobileSidebarOpen ? "mobile-open" : "")" id="sidebar">
+        <div class="sidebar-header">
+            @if (sidebarCollapsed)
+            {
+                <a href="/" class="sidebar-brand collapsed-brand">
+                    <i class="fas fa-boxes-stacked"></i>
+                </a>
+            }
+            else
+            {
+                <a href="/" class="sidebar-brand">
+                    <i class="fas fa-boxes-stacked"></i>
+                    <span>StockSimple</span>
+                </a>
+            }
+        </div>
+
+        <div class="sidebar-nav">
+            <NavLink href="" Match="NavLinkMatch.All" class="nav-item" @onclick="CloseMobile">
+                <i class="fas fa-chart-line"></i>
+                @if (!sidebarCollapsed) { <span class="sidebar-label">Dashboard</span> }
+            </NavLink>
+            <NavLink href="inventory" class="nav-item" @onclick="CloseMobile">
+                <i class="fas fa-box"></i>
+                @if (!sidebarCollapsed) { <span class="sidebar-label">Inventory</span> }
+            </NavLink>
+            <NavLink href="product/new" class="nav-item" @onclick="CloseMobile">
+                <i class="fas fa-plus-circle"></i>
+                @if (!sidebarCollapsed) { <span class="sidebar-label">Add Product</span> }
+            </NavLink>
+            <NavLink href="low-stock" class="nav-item" @onclick="CloseMobile">
+                <i class="fas fa-exclamation-triangle"></i>
+                @if (!sidebarCollapsed) { <span class="sidebar-label">Low Stock</span> }
+            </NavLink>
+        </div>
+
+        <button class="sidebar-toggle desktop-toggle" @onclick="ToggleSidebar" title="Toggle sidebar">
+            <i class="fas @(sidebarCollapsed ? "fa-angles-right" : "fa-angles-left")"></i>
+        </button>
+    </nav>
+
+    <!-- ═══════════ MOBILE TOP BAR ═══════════ -->
+    <div class="mobile-topbar">
+        <button class="mobile-menu-btn" @onclick="ToggleMobile">
+            <i class="fas @(mobileSidebarOpen ? "fa-times" : "fa-bars")"></i>
+        </button>
+        <a href="/" class="mobile-brand">
+            <i class="fas fa-boxes-stacked"></i> StockSimple
+        </a>
+    </div>
+
+    @if (mobileSidebarOpen)
+    {
+        <div class="mobile-overlay" @onclick="CloseMobile"></div>
+    }
+
+    <!-- ═══════════ MAIN AREA ═══════════ -->
+    <div class="main-area">
+        <main class="main-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<footer class="site-footer">
+    <p>&copy; @DateTime.Now.Year StockSimple &mdash; Inventory Tracker Demo</p>
+    <p class="footer-credit">
+        <i class="fas fa-code"></i>
+        Built by <a href="https://rairsolutions.com" target="_blank" rel="noopener">Rair Solutions</a>
+    </p>
+</footer>
+
+@code {
+    bool sidebarCollapsed = false;
+    bool mobileSidebarOpen = false;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        mobileSidebarOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    void ToggleSidebar()
+    {
+        sidebarCollapsed = !sidebarCollapsed;
+        mobileSidebarOpen = false;
+    }
+
+    void ToggleMobile()
+    {
+        mobileSidebarOpen = !mobileSidebarOpen;
+    }
+
+    void CloseMobile()
+    {
+        mobileSidebarOpen = false;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}
