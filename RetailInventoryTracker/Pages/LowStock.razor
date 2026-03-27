@@ -1,18 +1,17 @@
 @page "/low-stock"
-@model RetailInventoryTracker.Pages.LowStockModel
-@{
-    ViewData["Title"] = "Low Stock Alerts";
-}
+@inject InventoryService Svc
+
+<PageTitle>Low Stock Alerts — StockSimple</PageTitle>
 
 <div class="page-header">
     <div>
         <h1><i class="fas fa-exclamation-triangle text-warning"></i> Low Stock Alerts</h1>
-        <p class="page-sub">@Model.Items.Count item@(Model.Items.Count == 1 ? "" : "s") need attention</p>
+        <p class="page-sub">@items.Count item@(items.Count == 1 ? "" : "s") need attention</p>
     </div>
     <a href="/inventory" class="btn-outline"><i class="fas fa-arrow-left"></i> Back to Inventory</a>
 </div>
 
-@if (Model.Items.Count == 0)
+@if (items.Count == 0)
 {
     <div class="card">
         <div class="card-body">
@@ -27,7 +26,7 @@
 else
 {
     <div class="low-stock-grid">
-        @foreach (var p in Model.Items)
+        @foreach (var p in items)
         {
             <div class="low-stock-card @(p.IsOutOfStock ? "out-of-stock" : "")">
                 <div class="low-stock-header">
@@ -43,13 +42,9 @@ else
                     <span>On hand: <strong class="@(p.IsOutOfStock ? "text-danger" : "text-warning")">@p.QuantityOnHand</strong></span>
                 </div>
                 <div class="low-stock-actions">
-                    <form method="post" asp-page-handler="QuickAdd" style="display:inline">
-                        <input type="hidden" name="id" value="@p.Id" />
-                        <input type="hidden" name="amount" value="10" />
-                        <button type="submit" class="btn-primary btn-sm">
-                            <i class="fas fa-plus"></i> Add 10
-                        </button>
-                    </form>
+                    <button class="btn-primary btn-sm" @onclick="() => QuickAdd(p.Id)">
+                        <i class="fas fa-plus"></i> Add 10
+                    </button>
                     <a href="/product/@p.Id" class="btn-outline btn-sm">
                         <i class="fas fa-pen"></i> Edit
                     </a>
@@ -57,4 +52,24 @@ else
             </div>
         }
     </div>
+}
+
+@code {
+    List<Product> items = [];
+
+    protected override void OnInitialized()
+    {
+        LoadItems();
+    }
+
+    void LoadItems()
+    {
+        items = Svc.GetLowStock();
+    }
+
+    void QuickAdd(Guid id)
+    {
+        Svc.AdjustStock(id, 10);
+        LoadItems();
+    }
 }

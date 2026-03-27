@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="StockSimple — Inventory tracking for small retail businesses." />
+    <title>StockSimple</title>
+    <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+    <div id="app">
+        <div class="loading-screen">
+            <i class="fas fa-boxes-stacked loading-icon"></i>
+            <p>Loading StockSimple&hellip;</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <span class="dismiss">&#10006;</span>
+    </div>
+
+    <!-- ═══════ BARCODE SCANNER MODAL ═══════ -->
+    <div id="bs-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:2000;align-items:center;justify-content:center;">
+        <div class="bs-container">
+            <div class="bs-header">
+                <h3><i class="fas fa-barcode"></i> Scan Barcode</h3>
+                <button class="bs-close" onclick="BarcodeScanner.close()" title="Close">&times;</button>
+            </div>
+            <div class="bs-viewport">
+                <video id="bs-video" autoplay playsinline muted></video>
+                <div class="bs-line"></div>
+            </div>
+            <p id="bs-status" class="bs-status">Initializing&hellip;</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+    <script src="js/barcode-scanner.js"></script>
+    <script src="js/barcode-interop.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch and Debug Blazor WebAssembly Application",
+      "type": "blazorwasm",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/RetailInventoryTracker",
+      "url": "http://localhost:5282",
+      "launchBrowser": true,
+      "browser": "edge",
+      "dotNetConfig": {
+        "launchSettingsProfile": "http"
+      },
+      "preLaunchTask": "build"
+    }
+  ]
+}
